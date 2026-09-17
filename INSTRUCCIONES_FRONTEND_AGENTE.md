@@ -8,6 +8,22 @@
 
 ---
 
+## 🎯 ESTADO ACTUAL DEL PROYECTO (COMPLETADO Y PENDIENTE)
+
+**✅ Completado (Infraestructura y UI Base):**
+- **Rebranding "Noche de Cita":** Implementación total de la estética íntima (tonos oscuros, acentos carmesí/ámbar, tipografías Playfair/Inter, botones Glassmorphism, inputs elegantes).
+- **Layouts e Interacción:** Estructuras de fondo fijo (`page-hero-bg`) solucionando problemas de scroll; navegación inferior ajustada para no solapar contenido; "Empty states" premium para listas vacías.
+- **Base de Datos y Datos Iniciales:** Script de Seed (`seed.ts`) finalizado con 95 cartas extraídas y listas, sincronizando tanto en Dexie (offline) como en Supabase.
+- **Pantallas construidas:** Inicio (`Home.tsx`), Mis Mazos (`MazePage.tsx`), Creador (`CreatorPage.tsx`), Setup de Partida (`SetupPage.tsx`) y Logros (`LogrosPage.tsx`).
+
+**⏳ Pendiente (Motor de Juego y Jugabilidad):**
+1. **Pantalla Principal de Juego (`PlayPage.tsx`):** Swipe de cartas (`CartaSwiper.tsx`), UI de carta activa, botones de Rebotar/Logrado.
+2. **Lógica de Juego (`game-logic.ts`):** Algoritmo de "Mezcla" (pity-timer), resolución de variables dinámicas (`{jugador}`, `{pareja}`), y manejo de turnos.
+3. **Mecánicas Especiales:** Duelos, Maldiciones (efectos persistentes en UI), Votación Secreta.
+4. **Resumen Post-Partida (`SummaryPage.tsx`):** Pantalla final estilo Wrapped con estadísticas y botón de "Guardar recuerdos".
+
+---
+
 ## 1. Sistema de diseño (tokens) - Estética "Noche de Cita"
 
 ### 1.1 Color

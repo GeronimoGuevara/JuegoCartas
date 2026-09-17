@@ -1,78 +1,65 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { db } from '../db/db';
-import { getEstadisticasPartida, getCartasRecordadas } from '../db/db';
-import type { EstadisticaPartida, CartaRecordada } from '../types';
+import { db, getEstadisticasPartida, getCartasRecordadas, getPartidaActual, getJugadoresDePartida } from '../db/db';
+import type { EstadisticaPartida, CartaRecordada, JugadorPartida } from '../types';
 import type { SyncState } from '../hooks/useOfflineSync';
 import OfflineBanner from '../components/OfflineBanner';
-import BottomNav from '../components/BottomNav';
 import ResumenNocheCard from '../components/ResumenNocheCard';
 
 interface SummaryPageProps {
   sync: SyncState;
 }
 
-interface SummaryState {
-  partidaId: string;
-  jugadores: string[];
-}
-
 export default function SummaryPage({ sync }: SummaryPageProps) {
   const navigate = useNavigate();
   const location = useLocation();
-  const summaryState = (location.state as SummaryState | null) ?? { partidaId: '', jugadores: [] };
+  
+  const [partidaId, setPartidaId] = useState<string>('');
+  const [jugadoresTotales, setJugadoresTotales] = useState<number>(0);
   const [estadisticas, setEstadisticas] = useState<EstadisticaPartida[]>([]);
   const [cartasRecordadas, setCartasRecordadas] = useState<CartaRecordada[]>([]);
   const [cargando, setCargando] = useState(true);
 
+  const [nombres, setNombres] = useState<Record<string, string>>({});
+
   useEffect(() => {
     let activo = true;
     const init = async () => {
-      const stats = await getEstadisticasPartida(summaryState.partidaId);
-      const recordadas = await getCartasRecordadas(summaryState.partidaId);
+      let pId = location.state?.partidaId;
+      if (!pId) {
+        const pActual = await getPartidaActual();
+        if (pActual) pId = pActual.id;
+      }
+
+      if (!pId) {
+        if (activo) navigate('/setup');
+        return;
+      }
+
+      const stats = await getEstadisticasPartida(pId);
+      const recordadas = await getCartasRecordadas(pId);
+      const jugadores = await getJugadoresDePartida(pId);
+      
       if (!activo) return;
+      setPartidaId(pId);
+      setJugadoresTotales(jugadores.length);
       setEstadisticas(stats);
       setCartasRecordadas(recordadas);
       setCargando(false);
     };
     init();
     return () => { activo = false; };
-  }, [summaryState.partidaId]);
-
-  const handleGuardarRecuerdos = async () => {
-    const top3 = cartasRecordadas.slice(0, 3);
-    for (const c of top3) {
-      await db.cartas_recordadas.put(c);
-    }
-    navigate('/');
-  };
-
-  if (cargando) {
-    return (
-      <div className="summary-page">
-        <OfflineBanner sync={sync} />
-        <p className="home-mazos-estado">Preparando resumen…</p>
-        <BottomNav />
-      </div>
-    );
-  }
-
-  const maxMaldiciones = estadisticas.length > 0
-    ? estadisticas.reduce((a, b) => a.maldiciones_recibidas > b.maldiciones_recibidas ? a : b)
-    : null;
-  const maxDuelos = estadisticas.length > 0
-    ? estadisticas.reduce((a, b) => a.duelos_ganados > b.duelos_ganados ? a : b)
-    : null;
-
-  const getNombreJugador = async (jugadorId: string): Promise<string> => {
-    const j = await db.jugadores_partida.get(jugadorId);
-    return j?.nombre ?? jugadorId;
-  };
-
-  const [nombres, setNombres] = useState<Record<string, string>>({});
+  }, [location.state, navigate]);
 
   useEffect(() => {
+    if (estadisticas.length === 0) return;
     let activo = true;
+    
+    const getNombreJugador = async (jugadorId: string): Promise<string> => {
+      const j = await db.jugadores_partida.get(jugadorId);
+      return j?.nombre ?? jugadorId;
+    };
+
     const cargarNombres = async () => {
       const ids = [...new Set([...estadisticas.map((s) => s.jugador_id)])];
       const nombresMap: Record<string, string> = {};
@@ -85,57 +72,76 @@ export default function SummaryPage({ sync }: SummaryPageProps) {
     return () => { activo = false; };
   }, [estadisticas]);
 
-  const nombreMasMaldiciones = maxMaldiciones ? nombres[maxMaldiciones.jugador_id] : null;
-  const nombreMasDuelos = maxDuelos ? nombres[maxDuelos.jugador_id] : null;
+  const handleGuardarRecuerdos = async () => {
+    const top3 = cartasRecordadas.slice(0, 3);
+    for (const c of top3) {
+      await db.cartas_recordadas.put(c);
+    }
+    navigate('/');
+  };
+
+  if (cargando) {
+    return (
+      <div className="home-screen">
+        <OfflineBanner sync={sync} />
+        <p style={{ color: 'var(--texto-muted)', marginTop: '50px' }}>Preparando resumen…</p>
+      </div>
+    );
+  }
+
+  const maxMaldiciones = estadisticas.length > 0
+    ? estadisticas.reduce((a, b) => a.maldiciones_recibidas > b.maldiciones_recibidas ? a : b)
+    : null;
+  const maxDuelos = estadisticas.length > 0
+    ? estadisticas.reduce((a, b) => a.duelos_ganados > b.duelos_ganados ? a : b)
+    : null;
+
+  const totalJugadas = estadisticas.reduce((acc, curr) => acc + (curr.duelos_ganados || 0), 0);
+
+  const nombreMasMaldiciones = maxMaldiciones && maxMaldiciones.maldiciones_recibidas > 0 ? nombres[maxMaldiciones.jugador_id] : null;
+  const nombreMasDuelos = maxDuelos && maxDuelos.duelos_ganados > 0 ? nombres[maxDuelos.jugador_id] : null;
 
   return (
-    <div className="summary-page">
+    <div className="home-screen">
       <OfflineBanner sync={sync} />
-      <header className="home-header">
-        <h1>🎉 Resumen de la Noche</h1>
-      </header>
-
-      <div className="resumen-grid">
-        {nombreMasMaldiciones && (
-          <ResumenNocheCard
-            titulo="Más maldiciones"
-            valor={nombreMasMaldiciones}
-            icono="💀"
-          />
-        )}
-        {nombreMasDuelos && (
-          <ResumenNocheCard
-            titulo="Más duelos ganados"
-            valor={nombreMasDuelos}
-            icono="🏆"
-          />
-        )}
-        <ResumenNocheCard
-          titulo="Mazos usados"
-          valor={summaryState.jugadores.length}
-          icono="🃏"
-        />
-        <ResumenNocheCard
-          titulo="Cartas recordadas"
-          valor={cartasRecordadas.length}
-          icono="📝"
-        />
+      <div className="page-hero-bg">
+        <img src="/maze-hero.jpg" alt="Fondo Resumen" />
       </div>
 
-      <div style={{ marginTop: 20 }}>
-        <h2 className="resumen-titulo-general">Cartas más graciosas de la noche</h2>
-        {cartasRecordadas.slice(0, 3).map((c) => (
-          <div key={c.id} className="nombre-jugador">
-            <span>{c.carta_id}</span>
+      <div className="home-actions" style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+        <header className="home-header" style={{ textAlign: 'center', marginBottom: '20px' }}>
+          <h1>🎉 Noche Terminada</h1>
+          <p>¡Esto es lo que pasó!</p>
+        </header>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '30px' }}>
+          {nombreMasMaldiciones ? (
+            <ResumenNocheCard titulo="Más maldiciones" valor={nombreMasMaldiciones} icono="💀" />
+          ) : (
+            <ResumenNocheCard titulo="Cartas jugadas" valor={totalJugadas} icono="🃏" />
+          )}
+          {nombreMasDuelos ? (
+            <ResumenNocheCard titulo="MVP (Más jugadas)" valor={nombreMasDuelos} icono="🏆" />
+          ) : (
+            <ResumenNocheCard titulo="Sincronía" valor="100%" icono="💞" />
+          )}
+        </div>
+
+        {cartasRecordadas.length > 0 && (
+          <div style={{ marginBottom: 20 }}>
+            <h2 style={{ fontSize: '1.2rem', marginBottom: '12px' }}>Cartas recordadas</h2>
+            {cartasRecordadas.slice(0, 3).map((c) => (
+              <div key={c.id} className="btn-secundario-stack" style={{ marginBottom: '8px' }}>
+                <span className="btn-text">{c.carta_id}</span>
+              </div>
+            ))}
           </div>
-        ))}
+        )}
+
+        <button className="btn-jugar-inicio" type="button" onClick={handleGuardarRecuerdos} style={{ marginTop: 'auto', marginBottom: '20px' }}>
+          Guardar recuerdos
+        </button>
       </div>
-
-      <button className="btn-guardar-recuerdos" type="button" onClick={handleGuardarRecuerdos}>
-        Guardar recuerdos
-      </button>
-
-      <BottomNav />
     </div>
   );
 }

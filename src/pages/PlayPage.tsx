@@ -1,180 +1,180 @@
 import { useEffect, useState } from 'react';
-import { useLocation } from 'react-router-dom';
-import { db } from '../db/db';
-import { calcularProbabilidadPicante, actualizarRacha } from '../db/db';
-import type { Carta, JugadorPartida } from '../types';
-import type { SyncState } from '../hooks/useOfflineSync';
-import OfflineBanner from '../components/OfflineBanner';
-import BottomNav from '../components/BottomNav';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { db, getCartasParaPartida, getPartidaActual, getJugadoresDePartida } from '../db/db';
+import { elegirSiguienteCarta, resolverVariablesCarta } from '../lib/game-logic';
+import type { Carta, Categoria, JugadorPartida, PartidaActual, EstadisticaPartida } from '../types';
 import CartaSwiper from '../components/CartaSwiper';
-import MaldicionTimer from '../components/MaldicionTimer';
-import DueloCard from '../components/DueloCard';
-import TermometroCard from '../components/TermometroCard';
-import EspejoCard from '../components/EspejoCard';
-import VotacionSecretaCard from '../components/VotacionSecretaCard';
+import { AnimatePresence } from 'framer-motion';
 
-interface PlayPageProps {
-  sync: SyncState;
-}
-
-type Mecanica = 'estandar' | 'maldicion' | 'duelo' | 'espejo' | 'termometro' | 'votacion_secreta';
-
-export default function PlayPage({ sync }: PlayPageProps) {
+export default function PlayPage() {
   const location = useLocation();
-  const playState = (location.state as { partidaId: string; jugadores: JugadorPartida[] } | null) ?? { partidaId: '', jugadores: [] };
-  const [cartas, setCartas] = useState<Carta[]>([]);
-  const [cartasParaJugador, setCartasParaJugador] = useState<Carta[]>([]);
-  const [racha, setRacha] = useState(0);
-  const [cargando, setCargando] = useState(true);
-  const [modoMecanica, setModoMecanica] = useState<Mecanica>('estandar');
-  const [dueloResultado, setDueloResultado] = useState<{ ganador: JugadorPartida; perdedor: JugadorPartida } | null>(null);
-  const [termometroSincronia, setTermometroSincronia] = useState<number | null>(null);
-  const [votacionGanador, setVotacionGanador] = useState<string | null>(null);
+  const navigate = useNavigate();
+  
+  const [partida, setPartida] = useState<PartidaActual | null>(null);
+  const [jugadores, setJugadores] = useState<JugadorPartida[]>([]);
+  const [categorias, setCategorias] = useState<Categoria[]>([]);
+  const [cartasDisponibles, setCartasDisponibles] = useState<Carta[]>([]);
+  
+  const [cartaActual, setCartaActual] = useState<Carta | null>(null);
+  const [turnoIndex, setTurnoIndex] = useState(0);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const jugadorActual = playState.jugadores[0];
-
+  // Carga inicial
   useEffect(() => {
-    let activo = true;
-    const init = async () => {
-      const cartasData = await db.cartas.toArray();
-      const jugsData = await db.jugadores_partida.where('partida_id').equals(playState.partidaId).sortBy('orden');
+    async function init() {
+      try {
+        let pId = location.state?.partidaId;
+        if (!pId) {
+          const pActual = await getPartidaActual();
+          if (pActual) pId = pActual.id;
+        }
 
-      if (!activo) return;
+        if (!pId) {
+          navigate('/setup');
+          return;
+        }
 
-      if (cartasData.length > 0 && jugsData.length > 0) {
-        setCartas(cartasData);
-        const pPicante = calcularProbabilidadPicante(jugsData[0].racha_picante);
-        const pool = cartasData.filter(() => Math.random() < pPicante);
-        const seleccionadas = pool.slice(0, 3);
-        setCartasParaJugador(seleccionadas.length > 0 ? seleccionadas : cartasData.slice(0, 3));
+        const p = await db.partida_actual.get(pId);
+        if (!p) throw new Error("Partida no encontrada");
+        setPartida(p);
+
+        const j = await getJugadoresDePartida(pId);
+        setJugadores(j);
+
+        const cats = await db.categorias.toArray();
+        setCategorias(cats);
+
+        // Buscar todas las cartas del mazo base (luego se puede mejorar para usar p.categorias_activas)
+        const mazosSeleccionados = ['mazo-base-parejas-1']; // Hardcoded temporalmente, o sacar de settings
+        const cartas = await getCartasParaPartida(mazosSeleccionados, p.categorias_activas.length > 0 ? p.categorias_activas : undefined);
+        setCartasDisponibles(cartas);
+
+        setIsLoading(false);
+      } catch (error) {
+        console.error(error);
+        navigate('/setup');
       }
-      setCargando(false);
-    };
+    }
     init();
-    return () => { activo = false; };
-  }, [playState.partidaId]);
+  }, [location.state, navigate]);
 
-  const handleCartaSiguiente = () => {
-    const nuevaRacha = racha + 1;
-    const pPicante = calcularProbabilidadPicante(nuevaRacha);
-    const fuePicante = Math.random() < pPicante;
-    setRacha(actualizarRacha(nuevaRacha, fuePicante));
+  // Elegir carta cuando ya cargaron los datos
+  useEffect(() => {
+    if (!isLoading && cartasDisponibles.length > 0 && jugadores.length > 0 && !cartaActual) {
+      sacarNuevaCarta(turnoIndex);
+    }
+  }, [isLoading, cartasDisponibles, jugadores, cartaActual, turnoIndex]);
 
-    const pool = cartas.filter((c): boolean => !cartasParaJugador.includes(c));
-    const nuevas = pool.slice(0, Math.min(3, pool.length));
-    setCartasParaJugador(nuevas.length > 0 ? nuevas : pool.slice(0, 3));
-    setDueloResultado(null);
-    setTermometroSincronia(null);
-    setVotacionGanador(null);
-  };
-
-  const handleMecanica = (mecanica: Mecanica) => {
-    setModoMecanica(mecanica);
-  };
-
-  if (cargando) {
-    return (
-      <div className="play-page">
-        <OfflineBanner sync={sync} />
-        <p className="home-mazos-estado">Repartiendo cartas…</p>
-        <BottomNav />
-      </div>
+  const sacarNuevaCarta = (idx: number) => {
+    if (!partida || cartasDisponibles.length === 0) return;
+    
+    const jugadorActual = jugadores[idx];
+    const nueva = elegirSiguienteCarta(
+      cartasDisponibles, 
+      categorias, 
+      jugadorActual, 
+      partida.filtro_personalizado || 'mezcla'
     );
+    setCartaActual(nueva);
+  };
+
+  const handleSiguienteTurno = async (fueCumplido: boolean) => {
+    const jugadorActual = jugadores[turnoIndex];
+
+    if (fueCumplido && partida && cartaActual) {
+      // Guardar estadística de carta cumplida
+      const statsExisten = await db.estadisticas_partida
+        .where('partida_id').equals(partida.id)
+        .and(s => s.jugador_id === jugadorActual.id)
+        .first();
+        
+      if (statsExisten) {
+        await db.estadisticas_partida.update(statsExisten.id!, { duelos_ganados: statsExisten.duelos_ganados + 1 });
+      } else {
+        await db.estadisticas_partida.add({
+          partida_id: partida.id,
+          jugador_id: jugadorActual.id,
+          maldiciones_recibidas: 0,
+          duelos_ganados: 1,
+          duelos_perdidos: 0,
+        });
+      }
+    }
+    
+    // Avanzar turno
+    const siguienteIndex = (turnoIndex + 1) % jugadores.length;
+    setTurnoIndex(siguienteIndex);
+    
+    // Para que la animación de salida termine antes de renderizar la nueva
+    setCartaActual(null); 
+    
+    setTimeout(() => {
+      sacarNuevaCarta(siguienteIndex);
+    }, 250); // delay sutil para la animación
+  };
+
+  const handleFinalizar = () => {
+    if (partida) {
+      navigate('/resumen', { state: { partidaId: partida.id } });
+    }
+  };
+
+  if (isLoading || !partida || jugadores.length === 0) {
+    return <div className="home-screen" style={{ justifyContent: 'center' }}>Cargando la noche...</div>;
   }
 
-  const carta = cartasParaJugador[0];
-  if (!carta) {
-    return (
-      <div className="play-page">
-        <OfflineBanner sync={sync} />
-        <p className="home-mazos-estado">No quedan cartas en el mazo.</p>
-        <BottomNav />
-      </div>
-    );
-  }
-
-  const variableResolver: Record<string, string> = {
-    jugador_al_azar: jugadorActual?.nombre ?? 'jugador_al_azar',
-  };
+  const jugadorActual = jugadores[turnoIndex];
+  const catActual = cartaActual ? categorias.find(c => c.id === cartaActual.categoria_id) : undefined;
+  const textoResuelto = cartaActual ? resolverVariablesCarta(cartaActual.contenido, jugadores, jugadorActual) : '';
 
   return (
-    <div className="play-page">
-      <OfflineBanner sync={sync} />
-      {jugadorActual && <MaldicionTimer jugador={jugadorActual} />}
+    <div className="home-screen" style={{ overflow: 'hidden' }}>
+      <div className="page-hero-bg" style={{ opacity: 0.3 }}>
+        <img src="/maze-hero.jpg" alt="Fondo Juego" />
+      </div>
 
-      <header className="home-header">
-        <h1>Turno de {jugadorActual?.nombre}</h1>
-        <div className="filtro-pills" style={{ justifyContent: 'center' }}>
-          {(['estandar', 'maldicion', 'duelo', 'espejo', 'termometro', 'votacion_secreta'] as Mecanica[]).map((m) => (
-            <button key={m} type="button" className={`pill ${modoMecanica === m ? 'activo' : ''}`} onClick={() => handleMecanica(m)}>
-              {m === 'estandar' ? '📄' : m === 'maldicion' ? '⏳' : m === 'duelo' ? '⚡' : m === 'espejo' ? '🪞' : m === 'termometro' ? '🌡️' : '🗳️'} {m}
-            </button>
-          ))}
-        </div>
+      <header style={{ padding: '20px', textAlign: 'center', zIndex: 10, width: '100%', position: 'relative' }}>
+        <button 
+          onClick={handleFinalizar}
+          style={{ 
+            position: 'absolute', 
+            right: '16px', 
+            top: '16px', 
+            background: 'rgba(226, 27, 60, 0.15)', 
+            border: '1px solid var(--rojo-fuerte)', 
+            color: 'var(--rojo-fuerte)', 
+            padding: '8px 14px', 
+            borderRadius: '999px', 
+            fontSize: '0.85rem', 
+            fontWeight: 700, 
+            cursor: 'pointer', 
+            boxShadow: '0 0 15px rgba(226, 27, 60, 0.4)' 
+          }}
+        >
+          Terminar 🛑
+        </button>
+        <p style={{ color: 'var(--ambar)', textTransform: 'uppercase', letterSpacing: '2px', fontSize: '0.8rem', margin: 0 }}>
+          Turno de
+        </p>
+        <h1 style={{ margin: '5px 0 0', fontSize: '2rem', textShadow: '0 0 10px rgba(255,158,0,0.5)' }}>
+          {jugadorActual.nombre}
+        </h1>
       </header>
 
-      {modoMecanica === 'duelo' && jugadorActual && playState.jugadores[1] ? (
-        <DueloCard
-          carta={carta}
-          jugador1={jugadorActual}
-          jugador2={playState.jugadores[1]}
-          onResultado={(res) => {
-            setDueloResultado(res);
-            handleCartaSiguiente();
-          }}
-        />
-      ) : modoMecanica === 'termometro' && jugadorActual && playState.jugadores[1] ? (
-        <TermometroCard
-          carta={carta}
-          jugador1={jugadorActual}
-          jugador2={playState.jugadores[1]}
-          onResultado={(s) => {
-            setTermometroSincronia(s);
-            handleCartaSiguiente();
-          }}
-        />
-      ) : modoMecanica === 'espejo' && jugadorActual && playState.jugadores[1] ? (
-        <EspejoCard
-          carta={carta}
-          jugadorOrigen={jugadorActual}
-          jugadorDestino={playState.jugadores[1]}
-          onCumplido={() => handleCartaSiguiente()}
-        />
-      ) : modoMecanica === 'votacion_secreta' ? (
-        <VotacionSecretaCard
-          carta={carta}
-          jugadores={playState.jugadores}
-          onResultado={(id) => {
-            setVotacionGanador(id);
-            handleCartaSiguiente();
-          }}
-        />
-      ) : (
-        <CartaSwiper
-          cartas={cartasParaJugador}
-          variables={variableResolver}
-          onRebotar={handleCartaSiguiente}
-          onLogrado={handleCartaSiguiente}
-        />
-      )}
-
-      {dueloResultado && (
-        <div className="duelo-resultado">
-          ✅ {dueloResultado.ganador.nombre} gana el duelo contra {dueloResultado.perdedor.nombre}
-        </div>
-      )}
-      {termometroSincronia !== null && (
-        <div className="termometro-resultado-banner">
-          💞 Sincronía de pareja: {termometroSincronia}%
-        </div>
-      )}
-      {votacionGanador && (
-        <div className="votacion-resultado-banner">
-          🗳️ Ganador: {votacionGanador}
-        </div>
-      )}
-
-      <BottomNav />
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', position: 'relative', zIndex: 10, width: '100%', padding: '20px' }}>
+        <AnimatePresence mode="wait">
+          {cartaActual && (
+            <CartaSwiper
+              key={cartaActual.id}
+              carta={cartaActual}
+              categoria={catActual}
+              textoResuelto={textoResuelto}
+              onCumplido={() => handleSiguienteTurno(true)}
+              onRebotar={() => handleSiguienteTurno(false)}
+            />
+          )}
+        </AnimatePresence>
+      </div>
     </div>
   );
 }

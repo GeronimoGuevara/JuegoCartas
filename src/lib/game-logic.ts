@@ -1,68 +1,73 @@
-import type { Categoria, Carta, JugadorPartida } from '../types';
-import { calcularProbabilidadPicante, actualizarRacha } from '../db/db';
+import { calcularProbabilidadPicante } from '../db/db';
+import type { Carta, JugadorPartida, Categoria } from '../types';
 
-export function resolverVariables(
-  contenido: string,
-  variables: Record<string, string> | undefined
-): string {
-  if (!variables) return contenido;
-  return Object.entries(variables).reduce(
-    (acc, [key, value]) => acc.replace(new RegExp(`\\{${key}\\}`, 'g'), value),
-    contenido
-  );
+export function resolverVariablesCarta(texto: string, jugadores: JugadorPartida[], turnoActual: JugadorPartida): string {
+  let res = texto;
+  
+  if (res.includes('{jugador_al_azar}')) {
+    const otros = jugadores.filter(j => j.id !== turnoActual.id);
+    const elegido = otros.length > 0 ? otros[Math.floor(Math.random() * otros.length)] : turnoActual;
+    res = res.replace(/\{jugador_al_azar\}/g, elegido.nombre);
+  }
+  
+  if (res.includes('{pareja_jugando}')) {
+     res = res.replace(/\{pareja_jugando\}/g, "ustedes dos");
+  }
+
+  return res;
 }
 
-export function filtrarCartasPorIntensidad(
-  cartas: Carta[],
-  categorias: Categoria[],
-  filtro: 'chill' | 'picante' | 'mezcla'
-): Carta[] {
-  const idsPorIntensidad = new Map<string, string>();
-  categorias.forEach((c) => idsPorIntensidad.set(c.id, c.intensidad));
+export function elegirSiguienteCarta(
+  cartasDisponibles: Carta[], 
+  categorias: Categoria[], 
+  jugadorActual: JugadorPartida,
+  filtroActivo: 'chill' | 'picante' | 'mezcla' | 'manual'
+): Carta | null {
+  if (cartasDisponibles.length === 0) return null;
 
-  if (filtro === 'chill') {
-    return cartas.filter((c) => idsPorIntensidad.get(c.categoria_id) === 'chill');
-  }
-  if (filtro === 'picante') {
-    return cartas.filter((c) => idsPorIntensidad.get(c.categoria_id) === 'picante');
-  }
-  return cartas;
-}
+  let cartasCandidatas = [...cartasDisponibles];
 
-export function mezclaPonderada(cartas: Carta[], jugadores: JugadorPartida[]): { carta: Carta; jugador: JugadorPartida }[] {
-  const resultado: { carta: Carta; jugador: JugadorPartida }[] = [];
-  const disponibles = [...cartas];
+  // Si es mezcla, usamos el pity-timer basado en la racha del jugador actual
+  if (filtroActivo === 'mezcla') {
+    const probPicante = calcularProbabilidadPicante(jugadorActual.racha_picante);
+    const quierePicante = Math.random() < probPicante;
 
-  jugadores.forEach((jugador) => {
-    let racha = jugador.racha_picante;
-    const pool: Carta[] = [];
-
-    for (let i = 0; i < Math.min(3, disponibles.length); i++) {
-      const pPicante = calcularProbabilidadPicante(racha);
-      const esPicante = Math.random() < pPicante;
-      racha = actualizarRacha(racha, esPicante);
-
-      const carta = disponibles[Math.floor(Math.random() * disponibles.length)];
-      pool.push(carta);
-      disponibles.splice(disponibles.indexOf(carta), 1);
-    }
-
-    pool.forEach((carta) => {
-      resultado.push({ carta, jugador });
+    const cartasPicantes = cartasDisponibles.filter(c => {
+       const cat = categorias.find(cat => cat.id === c.categoria_id);
+       return cat?.intensidad === 'picante';
     });
-  });
+    
+    const cartasChill = cartasDisponibles.filter(c => {
+       const cat = categorias.find(cat => cat.id === c.categoria_id);
+       return cat?.intensidad === 'chill';
+    });
 
-  return resultado;
-}
+    if (quierePicante && cartasPicantes.length > 0) {
+      cartasCandidatas = cartasPicantes;
+    } else if (!quierePicante && cartasChill.length > 0) {
+      cartasCandidatas = cartasChill;
+    }
+  } 
+  // Filtros estrictos
+  else if (filtroActivo === 'chill') {
+    cartasCandidatas = cartasDisponibles.filter(c => {
+       const cat = categorias.find(cat => cat.id === c.categoria_id);
+       return cat?.intensidad === 'chill';
+    });
+  } 
+  else if (filtroActivo === 'picante') {
+    cartasCandidatas = cartasDisponibles.filter(c => {
+       const cat = categorias.find(cat => cat.id === c.categoria_id);
+       return cat?.intensidad === 'picante';
+    });
+  }
 
-export function generarIdJugador(): string {
-  return crypto.randomUUID();
-}
+  // Si por los filtros nos quedamos sin cartas, usamos todas como fallback
+  if (cartasCandidatas.length === 0) {
+    cartasCandidatas = cartasDisponibles; 
+  }
 
-export function calcularEstadisticas(
-  maldicionesRecibidas: number,
-  duelosGanados: number,
-  duelosPerdidos: number
-): { maldicionesRecibidas: number; duelosGanados: number; duelosPerdidos: number } {
-  return { maldicionesRecibidas, duelosGanados, duelosPerdidos };
+  // Elegir una al azar entre las candidatas
+  const index = Math.floor(Math.random() * cartasCandidatas.length);
+  return cartasCandidatas[index];
 }

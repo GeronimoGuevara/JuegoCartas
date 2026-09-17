@@ -146,6 +146,14 @@ export async function getCartasRecordadas(partidaId: string): Promise<CartaRecor
   return db.cartas_recordadas.where('partida_id').equals(partidaId).toArray();
 }
 
+export async function getCartasParaPartida(mazosIds: string[], categoriasIds?: string[]): Promise<Carta[]> {
+  return db.cartas.filter(carta => {
+    const mazoOk = mazosIds.includes(carta.mazo_id);
+    const catOk = categoriasIds ? categoriasIds.includes(carta.categoria_id) : true;
+    return mazoOk && catOk;
+  }).toArray();
+}
+
 // ---------------------------------------------------------------------------
 // Algoritmo "Mezcla" — pity-timer ponderado por jugador
 // ---------------------------------------------------------------------------
