@@ -102,7 +102,7 @@ export default function MazePage({ sync }: MazePageProps) {
         type="button"
         onClick={handleEmpezar}
         disabled={!puedeEmpezar}
-        style={{ opacity: puedeEmpezar ? 1 : 0.4, marginTop: 'auto', marginBottom: '20px' }}
+        style={{ opacity: puedeEmpezar ? 1 : 0.4, marginTop: 'auto', marginBottom: '100px' }}
       >
         ¡Empezar Partida! 🔥
       </button>

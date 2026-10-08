@@ -51,7 +51,7 @@ export default function HistorialPage({ sync }: HistorialPageProps) {
   return (
     <div className="logros-page">
       <OfflineBanner sync={sync} />
-      <div className="home-actions" style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+      <div className="home-actions" style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'flex-start', paddingTop: '20px', paddingBottom: '100px' }}>
         <header className="home-header" style={{ marginBottom: '20px' }}>
           <h1>Historial de Partidas</h1>
           <p>Tus noches inolvidables</p>

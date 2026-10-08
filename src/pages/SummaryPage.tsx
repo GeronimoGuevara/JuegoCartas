@@ -109,7 +109,7 @@ export default function SummaryPage({ sync }: SummaryPageProps) {
   const nombreMasRebotador = maxRebotadas && (maxRebotadas.cartas_rebotadas || 0) > 0 ? nombres[maxRebotadas.jugador_id] : null;
 
   return (
-    <div className="home-screen">
+    <div className="home-screen" style={{ overflow: 'hidden' }}>
       <OfflineBanner sync={sync} />
       <div className="page-hero-bg">
         <img src="/maze-hero.jpg" alt="Fondo Resumen" />

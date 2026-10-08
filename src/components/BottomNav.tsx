@@ -10,7 +10,12 @@ const items = [
 export default function BottomNav() {
   const location = useLocation();
   
-  if (location.pathname === '/' || location.pathname === '/jugar') {
+  if (
+    location.pathname === '/' || 
+    location.pathname === '/jugar' || 
+    location.pathname === '/setup' || 
+    location.pathname === '/resumen'
+  ) {
     return null;
   }
 
