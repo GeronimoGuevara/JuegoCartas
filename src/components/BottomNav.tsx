@@ -4,7 +4,7 @@ const items = [
   { to: '/', label: 'Inicio', icon: '🏠' },
   { to: '/mazos', label: 'Mis Mazos', icon: '🃏' },
   { to: '/creador', label: 'Creador', icon: '➕' },
-  { to: '/logros', label: 'Logros', icon: '🏆' },
+  { to: '/historial', label: 'Historial', icon: '📜' },
 ];
 
 export default function BottomNav() {

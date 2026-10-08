@@ -38,7 +38,7 @@ export default function CartaSwiper({
     });
   }, [carta.id, controls, x]);
 
-  const handleDragEnd = (event: any, info: any) => {
+  const handleDragEnd = (_event: any, info: any) => {
     // Si se arrastró más de 100px a la derecha o izquierda
     const umbral = 100;
     if (info.offset.x > umbral) {

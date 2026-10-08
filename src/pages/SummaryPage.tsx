@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { db, getEstadisticasPartida, getCartasRecordadas, getPartidaActual, getJugadoresDePartida } from '../db/db';
-import type { EstadisticaPartida, CartaRecordada, JugadorPartida } from '../types';
+import type { EstadisticaPartida, CartaRecordada } from '../types';
 import type { SyncState } from '../hooks/useOfflineSync';
 import OfflineBanner from '../components/OfflineBanner';
 import ResumenNocheCard from '../components/ResumenNocheCard';
+import { chequearLogros } from '../lib/gamification';
 
 interface SummaryPageProps {
   sync: SyncState;
@@ -14,8 +15,8 @@ export default function SummaryPage({ sync }: SummaryPageProps) {
   const navigate = useNavigate();
   const location = useLocation();
   
-  const [partidaId, setPartidaId] = useState<string>('');
-  const [jugadoresTotales, setJugadoresTotales] = useState<number>(0);
+  const [_partidaId, setPartidaId] = useState<string>('');
+  const [_jugadoresTotales, setJugadoresTotales] = useState<number>(0);
   const [estadisticas, setEstadisticas] = useState<EstadisticaPartida[]>([]);
   const [cartasRecordadas, setCartasRecordadas] = useState<CartaRecordada[]>([]);
   const [cargando, setCargando] = useState(true);
@@ -39,6 +40,11 @@ export default function SummaryPage({ sync }: SummaryPageProps) {
       const stats = await getEstadisticasPartida(pId);
       const recordadas = await getCartasRecordadas(pId);
       const jugadores = await getJugadoresDePartida(pId);
+      
+      // Chequear logros para todos al finalizar la noche
+      for (const j of jugadores) {
+        await chequearLogros(j.id);
+      }
       
       if (!activo) return;
       setPartidaId(pId);
@@ -72,13 +78,7 @@ export default function SummaryPage({ sync }: SummaryPageProps) {
     return () => { activo = false; };
   }, [estadisticas]);
 
-  const handleGuardarRecuerdos = async () => {
-    const top3 = cartasRecordadas.slice(0, 3);
-    for (const c of top3) {
-      await db.cartas_recordadas.put(c);
-    }
-    navigate('/');
-  };
+
 
   if (cargando) {
     return (
@@ -92,14 +92,21 @@ export default function SummaryPage({ sync }: SummaryPageProps) {
   const maxMaldiciones = estadisticas.length > 0
     ? estadisticas.reduce((a, b) => a.maldiciones_recibidas > b.maldiciones_recibidas ? a : b)
     : null;
-  const maxDuelos = estadisticas.length > 0
-    ? estadisticas.reduce((a, b) => a.duelos_ganados > b.duelos_ganados ? a : b)
+
+  const maxCumplidas = estadisticas.length > 0
+    ? estadisticas.reduce((a, b) => (a.cartas_cumplidas || 0) > (b.cartas_cumplidas || 0) ? a : b)
     : null;
 
-  const totalJugadas = estadisticas.reduce((acc, curr) => acc + (curr.duelos_ganados || 0), 0);
+  const maxRebotadas = estadisticas.length > 0
+    ? estadisticas.reduce((a, b) => (a.cartas_rebotadas || 0) > (b.cartas_rebotadas || 0) ? a : b)
+    : null;
+
+  const totalJugadas = estadisticas.reduce((acc, curr) => 
+    acc + (curr.cartas_cumplidas || 0) + (curr.cartas_rebotadas || 0), 0);
 
   const nombreMasMaldiciones = maxMaldiciones && maxMaldiciones.maldiciones_recibidas > 0 ? nombres[maxMaldiciones.jugador_id] : null;
-  const nombreMasDuelos = maxDuelos && maxDuelos.duelos_ganados > 0 ? nombres[maxDuelos.jugador_id] : null;
+  const nombreMasCumplidor = maxCumplidas && (maxCumplidas.cartas_cumplidas || 0) > 0 ? nombres[maxCumplidas.jugador_id] : null;
+  const nombreMasRebotador = maxRebotadas && (maxRebotadas.cartas_rebotadas || 0) > 0 ? nombres[maxRebotadas.jugador_id] : null;
 
   return (
     <div className="home-screen">
@@ -115,16 +122,10 @@ export default function SummaryPage({ sync }: SummaryPageProps) {
         </header>
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '30px' }}>
-          {nombreMasMaldiciones ? (
-            <ResumenNocheCard titulo="Más maldiciones" valor={nombreMasMaldiciones} icono="💀" />
-          ) : (
-            <ResumenNocheCard titulo="Cartas jugadas" valor={totalJugadas} icono="🃏" />
-          )}
-          {nombreMasDuelos ? (
-            <ResumenNocheCard titulo="MVP (Más jugadas)" valor={nombreMasDuelos} icono="🏆" />
-          ) : (
-            <ResumenNocheCard titulo="Sincronía" valor="100%" icono="💞" />
-          )}
+          <ResumenNocheCard titulo="Cartas jugadas" valor={totalJugadas} icono="🃏" />
+          <ResumenNocheCard titulo="MVP (Cumplió +)" valor={nombreMasCumplidor || '-'} icono="🏆" />
+          <ResumenNocheCard titulo="Más gallina (Rebotó +)" valor={nombreMasRebotador || '-'} icono="🐔" />
+          <ResumenNocheCard titulo="Más maldito" valor={nombreMasMaldiciones || '-'} icono="💀" />
         </div>
 
         {cartasRecordadas.length > 0 && (
@@ -138,8 +139,8 @@ export default function SummaryPage({ sync }: SummaryPageProps) {
           </div>
         )}
 
-        <button className="btn-jugar-inicio" type="button" onClick={handleGuardarRecuerdos} style={{ marginTop: 'auto', marginBottom: '20px' }}>
-          Guardar recuerdos
+        <button className="btn-jugar-inicio" type="button" onClick={() => navigate('/')} style={{ marginTop: 'auto', marginBottom: '20px' }}>
+          Volver al Menú Principal
         </button>
       </div>
     </div>

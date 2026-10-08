@@ -92,6 +92,9 @@ export interface EstadisticaPartida {
   maldiciones_recibidas: number;
   duelos_ganados: number;
   duelos_perdidos: number;
+  cartas_cumplidas: number;
+  cartas_rebotadas: number;
+  cartas_picantes: number;
   sincronia_pareja?: number | null;
 }
 

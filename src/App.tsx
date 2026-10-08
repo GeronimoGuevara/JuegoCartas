@@ -7,7 +7,7 @@ import CreatorPage from './pages/CreatorPage';
 import PlayPage from './pages/PlayPage';
 import SummaryPage from './pages/SummaryPage';
 import ParejasPage from './pages/ParejasPage';
-import LogrosPage from './pages/LogrosPage';
+import HistorialPage from './pages/HistorialPage';
 import BottomNav from './components/BottomNav';
 
 function App() {
@@ -21,10 +21,10 @@ function App() {
           <Route path="/mazos" element={<MazePage sync={sync} />} />
           <Route path="/setup" element={<SetupPage sync={sync} />} />
           <Route path="/creador" element={<CreatorPage sync={sync} />} />
-          <Route path="/jugar" element={<PlayPage sync={sync} />} />
+          <Route path="/jugar" element={<PlayPage />} />
           <Route path="/resumen" element={<SummaryPage sync={sync} />} />
           <Route path="/parejas" element={<ParejasPage sync={sync} />} />
-          <Route path="/logros" element={<LogrosPage sync={sync} />} />
+          <Route path="/historial" element={<HistorialPage sync={sync} />} />
         </Routes>
         <BottomNav />
       </div>

@@ -1,12 +1,14 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db/db';
-import type { Mazo, Categoria } from '../types';
+
 import type { SyncState } from '../hooks/useOfflineSync';
 import OfflineBanner from '../components/OfflineBanner';
 import MazoCard from '../components/MazoCard';
 import FiltroRapidoPills from '../components/FiltroRapidoPills';
 import type { FiltroPersonalizado } from '../types';
+import { seedDatabase } from '../lib/seed';
 
 interface MazePageProps {
   sync: SyncState;
@@ -14,28 +16,21 @@ interface MazePageProps {
 
 export default function MazePage({ sync }: MazePageProps) {
   const navigate = useNavigate();
-  const [mazos, setMazos] = useState<Mazo[]>([]);
-  const [categorias, setCategorias] = useState<Categoria[]>([]);
+  
+  // Use useLiveQuery to automatically re-render when DB changes
+  const mazos = useLiveQuery(() => db.mazos.toArray());
+  const categorias = useLiveQuery(() => db.categorias.toArray());
+  
   const [mazosSeleccionados, setMazosSeleccionados] = useState<string[]>([]);
   const [filtro, setFiltro] = useState<FiltroPersonalizado | null>(null);
   const [modoOffline, setModoOffline] = useState(false);
-  const [cargando, setCargando] = useState(true);
 
-  useEffect(() => {
-    let activo = true;
-    db.mazos.toArray().then((data) => {
-      if (!activo) return;
-      setMazos(data);
-    });
-    db.categorias.toArray().then((data) => {
-      if (!activo) return;
-      setCategorias(data);
-    });
-    db.cartas.count().finally(() => {
-      if (activo) setCargando(false);
-    });
-    return () => { activo = false; };
-  }, []);
+  const cargando = mazos === undefined || categorias === undefined;
+
+  const handleSeed = async () => {
+    await seedDatabase();
+    // No need to manually refresh; useLiveQuery will handle it.
+  };
 
   const toggleMazo = (mazoId: string) => {
     setMazosSeleccionados((prev) =>
@@ -76,9 +71,18 @@ export default function MazePage({ sync }: MazePageProps) {
       {cargando ? (
         <p className="empty-state">Cargando mazos…</p>
       ) : mazos.length === 0 ? (
-        <p className="empty-state">
-          Todavía no hay mazos descargados. Conectate una vez para traer el mazo base desde Supabase; después la app funciona sin red.
-        </p>
+        sync.isSyncing ? (
+          <p className="empty-state">Sincronizando catálogo desde la nube…</p>
+        ) : (
+          <div className="empty-state">
+            <p>
+              Todavía no hay mazos descargados. Conectate una vez para traer el mazo base desde Supabase; después la app funciona sin red.
+            </p>
+            <button className="btn-secundario-stack" onClick={handleSeed} style={{ marginTop: '20px', padding: '10px 20px', display: 'flex', justifyContent: 'center' }}>
+              Generar Mazo Base Inicial
+            </button>
+          </div>
+        )
       ) : (
         <div className="home-mazos-grid">
           {mazos.map((mazo) => (

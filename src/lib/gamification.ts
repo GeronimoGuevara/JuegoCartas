@@ -15,32 +15,83 @@ export async function registrarEstadistica(
     maldiciones_recibidas: maldicionesRecibidas,
     duelos_ganados: duelosGanados,
     duelos_perdidos: duelosPerdidos,
+    cartas_cumplidas: 0,
+    cartas_rebotadas: 0,
+    cartas_picantes: 0,
     sincronia_pareja: sincroniaPareja ?? null,
   });
 }
 
 export async function chequearLogros(jugadorId: string): Promise<LogroLocal[]> {
   const stats = await db.estadisticas_partida.where('jugador_id').equals(jugadorId).toArray();
+  const logrosPrevios = await db.logros_locales.toArray();
+  const nombresPrevios = logrosPrevios.map(l => l.nombre);
+  
   const nuevosLogros: LogroLocal[] = [];
 
-  const totalMaldiciones = stats.reduce((a, b) => a + b.maldiciones_recibidas, 0);
-  const totalDuelos = stats.reduce((a, b) => a + b.duelos_ganados, 0);
+  const totalMaldiciones = stats.reduce((a, b) => a + (b.maldiciones_recibidas || 0), 0);
+  const totalDuelos = stats.reduce((a, b) => a + (b.duelos_ganados || 0), 0);
+  const totalCumplidas = stats.reduce((a, b) => a + (b.cartas_cumplidas || 0), 0);
+  const totalRebotadas = stats.reduce((a, b) => a + (b.cartas_rebotadas || 0), 0);
+  const totalPicantes = stats.reduce((a, b) => a + (b.cartas_picantes || 0), 0);
 
-  if (totalMaldiciones >= 3) {
+  const nombreBombas = 'Sobrevivió 3 bombas de tiempo seguidas';
+  if (totalMaldiciones >= 3 && !nombresPrevios.includes(nombreBombas)) {
     nuevosLogros.push({
       id: crypto.randomUUID(),
-      nombre: 'Sobrevivió 3 bombas de tiempo seguidas',
+      nombre: nombreBombas,
       desbloqueado_en: Date.now(),
       progreso: totalMaldiciones,
     });
   }
 
-  if (totalDuelos >= 3) {
+  const nombreImpostor = 'Impostor perfecto 3 veces';
+  if (totalDuelos >= 3 && !nombresPrevios.includes(nombreImpostor)) {
     nuevosLogros.push({
       id: crypto.randomUUID(),
-      nombre: 'Impostor perfecto 3 veces',
+      nombre: nombreImpostor,
       desbloqueado_en: Date.now(),
       progreso: totalDuelos,
+    });
+  }
+
+  const nombrePrimera = 'Rompehielos (Terminó su primera partida)';
+  if (!nombresPrevios.includes(nombrePrimera)) {
+    nuevosLogros.push({
+      id: crypto.randomUUID(),
+      nombre: nombrePrimera,
+      desbloqueado_en: Date.now(),
+      progreso: 1,
+    });
+  }
+
+  const nombreValiente = 'Valiente (Cumplió 5 retos sin arrugar)';
+  if (totalCumplidas >= 5 && !nombresPrevios.includes(nombreValiente)) {
+    nuevosLogros.push({
+      id: crypto.randomUUID(),
+      nombre: nombreValiente,
+      desbloqueado_en: Date.now(),
+      progreso: totalCumplidas,
+    });
+  }
+
+  const nombreGallina = 'Gallina (Rebotó 3 retos seguidos)';
+  if (totalRebotadas >= 3 && !nombresPrevios.includes(nombreGallina)) {
+    nuevosLogros.push({
+      id: crypto.randomUUID(),
+      nombre: nombreGallina,
+      desbloqueado_en: Date.now(),
+      progreso: totalRebotadas,
+    });
+  }
+
+  const nombreFuego = 'En Llamas (Jugó 3 cartas picantes)';
+  if (totalPicantes >= 3 && !nombresPrevios.includes(nombreFuego)) {
+    nuevosLogros.push({
+      id: crypto.randomUUID(),
+      nombre: nombreFuego,
+      desbloqueado_en: Date.now(),
+      progreso: totalPicantes,
     });
   }
 

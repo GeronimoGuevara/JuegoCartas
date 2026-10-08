@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { db, getCartasParaPartida, getPartidaActual, getJugadoresDePartida } from '../db/db';
 import { elegirSiguienteCarta, resolverVariablesCarta } from '../lib/game-logic';
-import type { Carta, Categoria, JugadorPartida, PartidaActual, EstadisticaPartida } from '../types';
+import type { Carta, Categoria, JugadorPartida, PartidaActual } from '../types';
 import CartaSwiper from '../components/CartaSwiper';
 import { AnimatePresence } from 'framer-motion';
 
@@ -81,22 +81,40 @@ export default function PlayPage() {
   const handleSiguienteTurno = async (fueCumplido: boolean) => {
     const jugadorActual = jugadores[turnoIndex];
 
-    if (fueCumplido && partida && cartaActual) {
-      // Guardar estadística de carta cumplida
+    if (partida && cartaActual && catActual) {
+      // Guardar estadística según la mecánica de la carta
       const statsExisten = await db.estadisticas_partida
         .where('partida_id').equals(partida.id)
         .and(s => s.jugador_id === jugadorActual.id)
         .first();
         
+      const incDuelosG = fueCumplido && catActual.mecanica === 'duelo' ? 1 : 0;
+      const incDuelosP = !fueCumplido && catActual.mecanica === 'duelo' ? 1 : 0;
+      const incMaldiciones = catActual.mecanica === 'maldicion' ? 1 : 0;
+      
+      const incCumplidas = fueCumplido ? 1 : 0;
+      const incRebotadas = !fueCumplido ? 1 : 0;
+      const incPicantes = catActual.intensidad === 'picante' ? 1 : 0;
+
       if (statsExisten) {
-        await db.estadisticas_partida.update(statsExisten.id!, { duelos_ganados: statsExisten.duelos_ganados + 1 });
+        await db.estadisticas_partida.update(statsExisten.id!, { 
+          duelos_ganados: statsExisten.duelos_ganados + incDuelosG,
+          duelos_perdidos: statsExisten.duelos_perdidos + incDuelosP,
+          maldiciones_recibidas: statsExisten.maldiciones_recibidas + incMaldiciones,
+          cartas_cumplidas: (statsExisten.cartas_cumplidas || 0) + incCumplidas,
+          cartas_rebotadas: (statsExisten.cartas_rebotadas || 0) + incRebotadas,
+          cartas_picantes: (statsExisten.cartas_picantes || 0) + incPicantes,
+        });
       } else {
         await db.estadisticas_partida.add({
           partida_id: partida.id,
           jugador_id: jugadorActual.id,
-          maldiciones_recibidas: 0,
-          duelos_ganados: 1,
-          duelos_perdidos: 0,
+          maldiciones_recibidas: incMaldiciones,
+          duelos_ganados: incDuelosG,
+          duelos_perdidos: incDuelosP,
+          cartas_cumplidas: incCumplidas,
+          cartas_rebotadas: incRebotadas,
+          cartas_picantes: incPicantes,
         });
       }
     }

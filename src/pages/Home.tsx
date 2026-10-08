@@ -1,7 +1,7 @@
 import { NavLink } from "react-router-dom";
 import type { SyncState } from "../hooks/useOfflineSync";
 import OfflineBanner from "../components/OfflineBanner";
-import { seedDatabase } from "../lib/seed";
+
 
 interface HomeProps {
   sync: SyncState;
@@ -33,9 +33,9 @@ export default function Home({ sync }: HomeProps) {
             <span className="btn-text">Creador de cartas</span>
             <span className="btn-icon">+</span>
           </NavLink>
-          <NavLink to="/logros" className="btn-secundario-stack" end={false}>
-            <span className="btn-text">Logros</span>
-            <span className="btn-icon">🏆</span>
+          <NavLink to="/historial" className="btn-secundario-stack" end={false}>
+            <span className="btn-text">Historial de partidas</span>
+            <span className="btn-icon">📜</span>
           </NavLink>
           <NavLink to="/setup" className="btn-secundario-stack" end={false}>
             <span className="btn-text">Ajustes de partida</span>

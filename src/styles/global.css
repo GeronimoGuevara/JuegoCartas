@@ -127,17 +127,6 @@ body::after {
   width: 100%;
 }
 
-.banner-conexion.flotante {
-  position: absolute;
-  top: 16px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 10;
-  background: rgba(15, 10, 31, 0.7);
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-}
 
 .page-hero-bg {
   position: fixed;
