@@ -10,7 +10,7 @@ export default defineConfig({
     VitePWA({
       // autoUpdate: el SW se actualiza solo en background, sin pedirle nada al usuario
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.ico', 'icons/apple-touch-icon.png'],
+      includeAssets: ['icono-pwa.jpg'],
       manifest: {
         name: 'Noche de Juego — Cartas, Retos y Preguntas',
         short_name: 'NocheDeJuego',
@@ -22,12 +22,12 @@ export default defineConfig({
         start_url: '/',
         scope: '/',
         icons: [
-          { src: 'icons/icon-192.png', sizes: '192x192', type: 'image/png' },
-          { src: 'icons/icon-512.png', sizes: '512x512', type: 'image/png' },
+          { src: '/icono-pwa.jpg', sizes: '192x192', type: 'image/jpeg' },
+          { src: '/icono-pwa.jpg', sizes: '512x512', type: 'image/jpeg' },
           {
-            src: 'icons/icon-maskable-512.png',
+            src: '/icono-pwa.jpg',
             sizes: '512x512',
-            type: 'image/png',
+            type: 'image/jpeg',
             purpose: 'maskable',
           },
         ],
