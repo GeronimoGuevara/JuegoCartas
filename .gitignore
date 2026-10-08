@@ -7,8 +7,6 @@
 imagenesRetos/
 
 #seed
-src/db/cartas_extraidas.ts
-
 # Dependencias
 node_modules/
 
