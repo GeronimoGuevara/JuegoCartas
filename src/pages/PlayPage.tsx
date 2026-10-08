@@ -146,7 +146,7 @@ export default function PlayPage() {
   const textoResuelto = cartaActual ? resolverVariablesCarta(cartaActual.contenido, jugadores, jugadorActual) : '';
 
   return (
-    <div className="home-screen" style={{ overflow: 'hidden' }}>
+    <div className="home-screen" style={{ overflow: 'hidden', maxHeight: 'calc(100dvh - 96px)' }}>
       <div className="page-hero-bg" style={{ opacity: 0.3 }}>
         <img src="/maze-hero.jpg" alt="Fondo Juego" />
       </div>

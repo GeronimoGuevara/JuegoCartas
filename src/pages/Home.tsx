@@ -9,7 +9,7 @@ interface HomeProps {
 
 export default function Home({ sync }: HomeProps) {
   return (
-    <div className="home-screen">
+    <div className="home-screen" style={{ overflow: 'hidden', maxHeight: 'calc(100dvh - 96px)' }}>
       <OfflineBanner sync={sync} />
 
       <div className="page-hero-bg">
