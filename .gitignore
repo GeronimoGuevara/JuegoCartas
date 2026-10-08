@@ -35,7 +35,6 @@ yarn-error.log*
 pnpm-debug.log*
 
 # PWA (los iconos generados)
-icons/*.png
 !icons/.gitkeep
 
 # Cache

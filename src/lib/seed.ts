@@ -81,6 +81,13 @@ export async function seedDatabase() {
 
     console.log('¡Dexie actualizado con éxito!');
 
+  } catch (error: any) {
+    console.error('Error guardando en Dexie (Local):', error);
+    alert('Hubo un error al crear el mazo localmente:\n' + error.message);
+    return;
+  }
+
+  try {
     console.log('Insertando en Supabase (Remoto)...');
     
     // Insertar en Supabase (Mazo)
@@ -129,7 +136,7 @@ export async function seedDatabase() {
     alert('¡Seed completado! Mazo base insertado en Dexie y Supabase.');
     
   } catch (error: any) {
-    console.error('Error durante el seed:', error);
-    alert('Hubo un error al subir a Supabase:\n\n' + error.message);
+    console.warn('El mazo se guardó localmente, pero hubo un error al sincronizar con Supabase (posiblemente offline):', error);
+    alert('¡Mazo guardado localmente con éxito!\n\n(No se pudo sincronizar con la nube porque estás offline o la URL de Supabase es inválida, pero podés jugar igual)');
   }
 }
