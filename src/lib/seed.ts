@@ -1,6 +1,6 @@
 import { supabase } from './supabase';
 import { db } from '../db/db';
-import { cartasExtraidas } from '../db/cartas_extraidas';
+import { cartasExtraidas, type CartaPredefinida } from '@/db/cartas_extraidas';
 import type { Carta, Mazo, Categoria } from '../types';
 
 export async function seedDatabase() {
@@ -44,7 +44,7 @@ export async function seedDatabase() {
   ];
 
   // 3. Preparar Cartas
-  const cartasAInsertar: Carta[] = cartasExtraidas.map((c, index) => {
+  const cartasAInsertar: Carta[] = cartasExtraidas.map((c: CartaPredefinida, index: number) => {
     let catId = 'cat-preguntas';
     if (c.tipo === 'reto') catId = 'cat-retos-suaves';
     if (c.tipo === 'hot') catId = 'cat-retos-hot';
